@@ -1,0 +1,77 @@
+apply plugin: 'java'
+apply plugin: 'idea'
+
+sourceCompatibility = 1.7
+targetCompatibility = 1.7
+
+def BUILD_TOOL_VERSION = '23.0.2'
+
+defaultTasks 'compileJava'
+[compileJava, javadoc, compileTestJava]*.options*.encoding = 'UTF-8'
+
+repositories {
+    flatDir {
+        dirs 'libs'
+    }
+}
+
+configurations {
+    provided
+    compile.extendsFrom provided
+}
+
+sourceSets {
+    main {
+        resources {
+            srcDir 'src/main/resources'
+        }
+        java {
+            srcDir 'src/main/java'
+        }
+    }
+}
+
+buildscript {
+    repositories {
+        mavenLocal()
+        mavenCentral()
+    }
+    dependencies {
+        classpath fileTree(dir: 'libs', include: ['*.jar'])
+    }
+}
+
+dependencies {
+    testCompile group: 'junit', name: 'junit', version: '4.11'
+    provided files ('libs\\uiautomator-ext-21.jar')
+//    compile files ('libs\\uibridge-1.3.jar')
+}
+
+project.ext {
+    // output jar file dir
+    outDir = new File('build/bin')
+}
+
+jar {
+    dependsOn configurations.runtime
+    from {
+        (configurations.compile - configurations.provided).collect {
+            it.isDirectory() ? it : zipTree(it)
+        }
+    } {
+        exclude "META-INF/*.SF"
+        exclude "META-INF/*.DSA"
+        exclude "META-INF/*.RSA"
+    }
+    doLast {
+        println 'dex exec...'
+        project.outDir.mkdir()
+        tasks.dex.execute()
+    }
+}
+
+task dex(dependsOn: jar, type:Exec) {
+    println 'Building dex...'
+    workingDir '.'
+    commandLine ANDROID_HOME + '\\build-tools\\'+ BUILD_TOOL_VERSION + '\\' + 'dx.bat', '--dex', '--no-strict', '--multi-dex', '--output=' + project.outDir + '\\' + project.name + '.jar', jar.archivePath
+}
